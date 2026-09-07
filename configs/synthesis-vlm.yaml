@@ -1,0 +1,15 @@
+# URL may be a base URL ending in /v1 or a full /chat/completions URL.
+synthesis:
+  vlm:
+    url: http://127.0.0.1:8000/v1
+    model: your-vision-model-name
+    token: ""                 # 可直接填写 token；非空时优先于 token_env
+    token_env: SYNTH_VLM_TOKEN # 本地无鉴权服务可改成 null
+    timeout: 120
+    retries: 2
+    temperature: 0.3
+    max_tokens: 8192
+  max_seeds: 3                # 按输入顺序，可直接输入 mine 的结果
+  templates_per_seed: 2       # 1 个初始模板 + 1 个结构/内容扩展模板
+  max_repairs: 2              # 每个模板最多修正两次
+seed: 42

@@ -1,0 +1,32 @@
+{
+  "method": "GT-driven parametric tables",
+  "families": 4,
+  "images": 8,
+  "rendering": "real Chromium browser",
+  "qa_accepted": 8,
+  "import_accepted": 8,
+  "pytest_passed": 49,
+  "font": "NotoSansCJKsc-Regular.otf",
+  "font_sha256": "2c76254f6fc379fddfce0a7e84fb5385bb135d3e399294f6eeb6680d0365b74b",
+  "versions": {
+    "playwright": "1.62.0",
+    "fonttools": "4.60.1",
+    "Pillow": "12.0.0"
+  },
+  "checks": [
+    "font glyph coverage",
+    "DOM text agreement",
+    "no cell overflow",
+    "HTML/OTSL roundtrip",
+    "image checksum",
+    "existing importer",
+    "gallery resource links",
+    "visual inspection of contact sheet and full-resolution wrap sample"
+  ],
+  "not_tested": [
+    "real user hardcase style replication",
+    "PaddleOCR model inference",
+    "DPO training benefit",
+    "VLM template generation"
+  ]
+}

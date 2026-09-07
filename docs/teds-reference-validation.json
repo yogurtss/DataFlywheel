@@ -1,0 +1,45 @@
+{
+  "source_sha256": "a9aedd313678b42e55b06c4b0a365d658ef495aaf3abb7fd6012a6e9f334f9f9",
+  "cases": [
+    {
+      "structure_only": false,
+      "reference": 1.0,
+      "local": 1.0
+    },
+    {
+      "structure_only": true,
+      "reference": 1.0,
+      "local": 1.0
+    },
+    {
+      "structure_only": false,
+      "reference": 0.6666666666666667,
+      "local": 0.6666666666666667
+    },
+    {
+      "structure_only": true,
+      "reference": 1.0,
+      "local": 1.0
+    },
+    {
+      "structure_only": false,
+      "reference": 0.5,
+      "local": 0.5
+    },
+    {
+      "structure_only": true,
+      "reference": 0.5,
+      "local": 0.5
+    },
+    {
+      "structure_only": false,
+      "reference": 0.5,
+      "local": 0.5
+    },
+    {
+      "structure_only": true,
+      "reference": 0.5,
+      "local": 0.5
+    }
+  ]
+}

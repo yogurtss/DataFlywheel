@@ -1,0 +1,23 @@
+{
+  "source_sha256": "63bf7d0ccf03225dd6be582e2b25628283e2eed0ad0b1c7864e086e3b95f923a",
+  "cases": [
+    {
+      "input_html": "<table><tr><td>A &amp; B</td><td></td></tr></table>",
+      "otsl": "<fcel>A & B<ecel><nl>",
+      "official_html": "<table><tr><td>A &amp; B</td><td></td></tr></table>",
+      "match": true
+    },
+    {
+      "input_html": "<table><tr><td rowspan=\"2\" colspan=\"2\">A</td><td>B</td></tr><tr><td>C<br>D</td></tr></table>",
+      "otsl": "<fcel>A<lcel><fcel>B<nl><ucel><xcel><fcel>C\nD<nl>",
+      "official_html": "<table><tr><td rowspan=\"2\" colspan=\"2\">A</td><td>B</td></tr><tr><td>C\nD</td></tr></table>",
+      "match": true
+    },
+    {
+      "input_html": "<table><tr><td colspan=\"2\"></td><td>x</td></tr></table>",
+      "otsl": "<ecel><lcel><fcel>x<nl>",
+      "official_html": "<table><tr><td colspan=\"2\"></td><td>x</td></tr></table>",
+      "match": true
+    }
+  ]
+}

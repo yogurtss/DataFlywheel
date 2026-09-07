@@ -1,0 +1,65 @@
+# 相对路径按当前工作目录解析；输入 image 相对输入 JSON 所在目录。
+seed: 42
+models:
+  base:
+    base_url: http://127.0.0.1:8000/v1
+    model: paddleocr-vl-base
+    revision: REPLACE_WITH_BASE_CHECKPOINT_SHA
+    # api_key_env: BASE_API_KEY
+  sft:
+    base_url: http://127.0.0.1:8001/v1
+    model: paddleocr-vl-sft
+    revision: REPLACE_WITH_SFT_CHECKPOINT_SHA
+    # extra_body: {mm_processor_kwargs: {size: {shortest_edge: 112896, longest_edge: 1003520}}}
+fields: {} # 例如 {image: image_path, task: category, document_id: doc_id}
+data:
+  eval_fraction: 0.0
+  exclude_manifests: [] # 可列出带 document_id / parent_document_id / image_hash 的评测清单
+inference:
+  concurrency: 8
+  timeout: 180
+  retries: 3
+  max_tokens: 4096
+  samples: 4
+  temperature: 0.7
+  top_p: 0.9
+  preprocess: {mode: rgb, max_side: null}
+metrics:
+  formula: cdm # fast 为显式编辑距离代理，不是 CDM
+  cdm_repo: /path/to/OmniDocBench
+  cdm_python: /path/to/cdm-env/bin/python
+  timeout: 120
+mining:
+  budget: 1000
+  weights: [0.4, 0.4, 0.2]
+  regression_threshold: 0.05
+  middle_quantiles: [0.2, 0.8]
+  buckets: {regression: 0.4, learnable: 0.4, coverage: 0.2}
+pairs:
+  mode: hybrid
+  margin: 0.05
+  min_quality: {table: 0.85, text: 0.95, formula: 0.90}
+mixture:
+  domain: {private: 0.5, general: 0.5}
+  task: {table: 0.5, text: 0.3, formula: 0.2}
+report: {page_size: 40}
+training:
+  model: /path/to/sft-full-checkpoint
+  ref_model: null # 默认 SFT checkpoint，与 models.base 独立
+  gpus: '0'
+  nproc_per_node: 1
+  learning_rate: 1.0e-6
+  beta: 0.1
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 16
+  max_length: 8192
+  max_pixels: 1003520
+  rpo_alpha: null # null = 纯 DPO，可显式设置 0.1/1.0 做实验
+pages:
+  pipeline_version: v1.6
+  backend: vllm-server
+  options:
+    layout_detection_model_name: PP-DocLayoutV3
+    use_doc_orientation_classify: false
+    use_doc_unwarping: false

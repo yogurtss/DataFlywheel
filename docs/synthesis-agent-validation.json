@@ -1,0 +1,14 @@
+{
+  "date": "2026-09-07",
+  "pytest_passed": 57,
+  "integration": "real Chromium renderer with httpx.MockTransport VLM fixture",
+  "real_provider_requests": 0,
+  "protocol_requests": 6,
+  "generated_samples": 2,
+  "visual_feedback_repairs": 1,
+  "synth_check_accepted": 2,
+  "convert_accepted": 2,
+  "checks": ["custom URL/model/Bearer token", "PNG data URI messages", "truncation rejection", "credential redaction", "visual feedback with both images", "template expansion request", "held-out document isolation", "bounded style fields", "real HTML/OTSL render and import"],
+  "not_tested": ["real VLM generation quality", "real hardcase fidelity", "PaddleOCR difficulty scores", "DPO training benefit"],
+  "reproduction_script": "scripts/smoke_synthesis_agent.py"
+}

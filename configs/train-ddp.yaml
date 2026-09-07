@@ -1,0 +1,6 @@
+# 与 default.yaml 一样的默认值，仅覆盖训练硬件；不用 ZeRO。
+training:
+  model: /path/to/sft-full-checkpoint
+  gpus: '0,1,2,3'
+  nproc_per_node: 4
+  gradient_accumulation_steps: 4

@@ -1,0 +1,32 @@
+[
+  {
+    "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleX/develop/paddlex/inference/pipelines/paddleocr_vl/uilts.py",
+    "sha256": "63bf7d0ccf03225dd6be582e2b25628283e2eed0ad0b1c7864e086e3b95f923a",
+    "validation": "source inspection only"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/ibm-aur-nlp/PubTabNet/master/src/metric.py",
+    "sha256": "a9aedd313678b42e55b06c4b0a365d658ef495aaf3abb7fd6012a6e9f334f9f9",
+    "validation": "source inspection only"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/opendatalab/OmniDocBench/main/src/metrics/cdm/cdm.py",
+    "sha256": "6e07d3e8271740295d8f4e874f7a55942379327e12d74c56db5f1cb41fd2bbf7",
+    "validation": "source inspection only"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/modelscope/ms-swift/main/swift/model/models/baidu.py",
+    "sha256": "9b727e420c602d0daa3ff2b39fbb6de458ab19edb93d2e442cb7284374014d1a",
+    "validation": "source inspection only"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/modelscope/ms-swift/main/swift/template/templates/baidu.py",
+    "sha256": "ef8c5fc93829a02fdc4034dc8872cc8fcfd974a6fb8af720a64b08af82a9a10b",
+    "validation": "source inspection only"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/main/paddleocr/_pipelines/paddleocr_vl.py",
+    "sha256": "2a411338b652ca6534861f52b380bae03d4ebcdbd20d9806bfbc3c8d3ecb0c2b",
+    "validation": "source inspection only"
+  }
+]

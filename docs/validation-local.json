@@ -1,0 +1,45 @@
+{
+  "python": "3.13.9 | packaged by Anaconda, Inc. | (main, Oct 21 2025, 19:16:10) [GCC 11.2.0]",
+  "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "versions": {
+    "PyYAML": "6.0.3",
+    "httpx": "0.28.1",
+    "Pillow": "12.0.0",
+    "lxml": "6.1.0",
+    "apted": "1.0.3",
+    "rapidfuzz": "3.14.6",
+    "latex2mathml": "3.81.0",
+    "safetensors": "0.8.0",
+    "pytest": "8.4.2",
+    "torch": "2.12.1"
+  },
+  "cuda_available": false,
+  "scope": [
+    "CPU core unit tests",
+    "mock HTTP pipeline",
+    "CPU safetensors reload",
+    "offline HTML demo"
+  ],
+  "unverified": [
+    "real PaddleOCR-VL inference",
+    "CDM TeX execution",
+    "ms-swift template with real processor",
+    "single/multi-GPU training",
+    "real PaddleOCR page pipeline",
+    "real PaddleOCR checkpoint reload"
+  ],
+  "pytest": {
+    "passed": 43,
+    "failed": 0
+  },
+  "upstream_reference_checks": {
+    "otsl": 3,
+    "teds": 8
+  },
+  "offline_demo": {
+    "input_samples": 3,
+    "exported_pairs": 3,
+    "html_links_valid": true,
+    "formula_mathml_elements": 7
+  }
+}

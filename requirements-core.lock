@@ -1,0 +1,10 @@
+# Versions tested locally; torch/GPU/Swift are environment-specific and excluded.
+PyYAML==6.0.3
+httpx==0.28.1
+Pillow==12.0.0
+lxml==6.1.0
+apted==1.0.3
+rapidfuzz==3.14.6
+latex2mathml==3.81.0
+safetensors==0.8.0
+pytest==8.4.2
