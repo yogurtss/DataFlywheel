@@ -5,6 +5,7 @@ from PIL import Image
 
 from .io import digest, file_hash, read_rows
 from .tables import canonical_html, html_to_otsl, table_features
+from .sft import adapt_sft, resolve_image
 
 TASKS = {"table", "text", "formula"}
 
@@ -17,21 +18,20 @@ def pixel_hash(path):
 
 
 def normalize(row, base, config):
-    r = dict(row)
+    r = adapt_sft(row)
     for target, source in config["fields"].items():
         if source in row:
             r[target] = row[source]
     if r.get("task") not in TASKS:
         raise ValueError("task must be table/text/formula")
-    image = Path(r["image"]).expanduser()
-    image = (base / image).resolve() if not image.is_absolute() else image.resolve()
+    image = resolve_image(r["image"], base, config["data"])
     phash, size = pixel_hash(image)
     r.update(image=str(image), image_hash=file_hash(image), pixel_hash=phash, image_size=list(size))
     r.setdefault("id", digest([phash, r["task"]])[:20])
     r["id"] = str(r["id"])
     r.setdefault("source", "user")
     r.setdefault("domain", "private")
-    if r["domain"] not in config["mixture"]["domain"]:
+    if config["mixture"].get("domain") and r["domain"] not in config["mixture"]["domain"]:
         raise ValueError("domain must match mixture.domain (default: private/general)")
     r.setdefault("document_id", r.get("parent_document_id", r["id"]))
     r["document_id"] = str(r["document_id"])
@@ -128,10 +128,19 @@ def import_data(path, config):
             if source in raw:
                 record[target] = raw[source]
         if record.get("split", "train") != "train":
+            # Preserve image exclusion even when the SFT annotation is invalid.
+            if not record.get("image") and isinstance(record.get("image_info"), list):
+                for info in record["image_info"]:
+                    if isinstance(info, dict) and isinstance(info.get("image_url"), str):
+                        try:
+                            ph, _ = pixel_hash(resolve_image(info["image_url"], path.parent, config["data"]))
+                            excluded.append({"pixel_hash": ph})
+                        except (OSError, ValueError):
+                            pass
             if record.get("image"):
                 try:
-                    record["pixel_hash"], _ = pixel_hash(path.parent / record["image"])
-                except OSError:
+                    record["pixel_hash"], _ = pixel_hash(resolve_image(record["image"], path.parent, config["data"]))
+                except (OSError, ValueError):
                     pass
             excluded.append(record)
     for i, raw in enumerate(raw_rows):
@@ -145,6 +154,10 @@ def import_data(path, config):
             errors.append({"input_index": i, "raw": raw, "reason": f"import_error: {e}"})
     for manifest in config["data"]["exclude_manifests"]:
         for raw in read_rows(manifest):
+            if not raw.get("image") and raw.get("image_info"):
+                for info in raw["image_info"]:
+                    p = resolve_image(info["image_url"], Path(manifest).resolve().parent, config["data"])
+                    excluded.append({"pixel_hash": pixel_hash(p)[0]})
             # Normalized exclusion manifests need not have accessible images.
             if not raw.get("pixel_hash") and raw.get("image"):
                 p = Path(manifest).resolve().parent / raw["image"]

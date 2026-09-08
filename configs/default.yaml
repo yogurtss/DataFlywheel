@@ -13,6 +13,10 @@ models:
     # extra_body: {mm_processor_kwargs: {size: {shortest_edge: 112896, longest_edge: 1003520}}}
 fields: {} # 例如 {image: image_path, task: category, document_id: doc_id}
 data:
+  image_root: null # 相对图片默认相对 JSONL 所在目录；可指定根目录
+  image_cache: runs/image-cache # HTTP(S) 图片下载缓存
+  image_timeout: 60
+  max_image_bytes: 50000000
   eval_fraction: 0.0
   exclude_manifests: [] # 可列出带 document_id / parent_document_id / image_hash 的评测清单
 inference:
@@ -40,8 +44,8 @@ pairs:
   margin: 0.05
   min_quality: {table: 0.85, text: 0.95, formula: 0.90}
 mixture:
-  domain: {private: 0.5, general: 0.5}
-  task: {table: 0.5, text: 0.3, formula: 0.2}
+  domain: null # 不限制来源配比；需要时显式配置
+  task: null # 不限制 text/table/formula 配比，按难度与有效偏好选择
 report: {page_size: 40}
 training:
   model: /path/to/sft-full-checkpoint

@@ -61,7 +61,8 @@ DEFAULTS = {
     "seed": 42,
     "prompts": {"table": "Table Recognition:", "text": "OCR:", "formula": "Formula Recognition:"},
     "fields": {},
-    "data": {"eval_fraction": 0.0, "exclude_manifests": []},
+    "data": {"eval_fraction": 0.0, "exclude_manifests": [], "image_root": None,
+             "image_cache": "runs/image-cache", "image_timeout": 60, "max_image_bytes": 50_000_000},
     "inference": {"concurrency": 8, "timeout": 180, "retries": 3, "max_tokens": 4096,
                   "samples": 4, "temperature": 0.7, "top_p": 0.9,
                   "preprocess": {"mode": "rgb", "max_side": None}},
@@ -70,8 +71,7 @@ DEFAULTS = {
                "middle_quantiles": [0.2, 0.8], "buckets": {"regression": 0.4, "learnable": 0.4, "coverage": 0.2}},
     "pairs": {"mode": "hybrid", "margin": 0.05,
               "min_quality": {"table": 0.85, "text": 0.95, "formula": 0.90}},
-    "mixture": {"domain": {"private": 0.5, "general": 0.5},
-                "task": {"table": 0.5, "text": 0.3, "formula": 0.2}},
+    "mixture": {"domain": None, "task": None},
     "report": {"page_size": 40},
     "training": {"model": None, "ref_model": None, "gpus": "0", "nproc_per_node": 1,
                  "learning_rate": 1e-6, "beta": 0.1, "num_train_epochs": 1,
@@ -107,7 +107,7 @@ def load_config(path=None):
         raise ValueError("metrics.formula must be cdm or fast")
     if config["pairs"]["mode"] not in {"model_pair", "gt_pair", "hybrid"}:
         raise ValueError("pairs.mode must be model_pair, gt_pair or hybrid")
-    for section in [config["mining"]["buckets"], *config["mixture"].values()]:
+    for section in [config["mining"]["buckets"], *(v for v in config["mixture"].values() if v is not None)]:
         if not section or any(not isinstance(v, (int, float)) or not math.isfinite(v) or v < 0 for v in section.values()) or abs(sum(section.values()) - 1) > 1e-6:
             raise ValueError("Quota ratios must be nonnegative and sum to 1")
     weights = config["mining"]["weights"]

@@ -18,13 +18,14 @@ def apportion(total, ratios):
 
 
 def stratify(rows, budget, config, shuffle=False, bucketed=False):
-    """Joint domain/task quotas, deterministic no-replacement deficit backfill."""
-    ratios = {f"{d}/{t}": dv * tv for d, dv in config["mixture"]["domain"].items()
-              for t, tv in config["mixture"]["task"].items()}
+    """Optional domain/task quotas; deterministic no-replacement deficit backfill."""
+    domains, tasks = config["mixture"].get("domain"), config["mixture"].get("task")
+    ratios = {f"{d}/{t}": dv * tv for d, dv in (domains or {"*": 1}).items()
+              for t, tv in (tasks or {"*": 1}).items()}
     if bucketed:
         ratios = {f"{key}/{b}": v * bv for key, v in ratios.items() for b, bv in config["mining"]["buckets"].items()}
     def category(r):
-        key = f"{r['domain']}/{r['task']}"
+        key = f"{r['domain'] if domains else '*'}/{r['task'] if tasks else '*'}"
         return key + "/" + r["mining_bucket"] if bucketed else key
     desired = apportion(budget, ratios)
     ordered = list(rows)
@@ -48,6 +49,9 @@ def stratify(rows, budget, config, shuffle=False, bucketed=False):
     selected += rest[:max(0, budget - len(selected))]
     actual = Counter(category(r) for r in selected)
     return selected, {"requested": budget, "desired": desired, "actual": dict(actual),
+                      "task_counts": dict(Counter(r['task'] for r in selected)),
+                      "domain_counts": dict(Counter(r['domain'] for r in selected)),
+                      "task_quotas_enabled": bool(tasks), "domain_quotas_enabled": bool(domains),
                       "quota_shortfall_before_backfill": gaps, "unfilled": max(0, budget - len(selected))}
 
 

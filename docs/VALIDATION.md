@@ -35,3 +35,7 @@
 当前完整测试共 **57 项通过**。新增 OpenAI 兼容 URL/model/Bearer token、PNG 图片消息、截断拒绝、凭据脱敏、视觉修正反馈、模板扩展请求、评测文档隔离及样式字段校验。
 
 使用真实 Chromium 与 `httpx.MockTransport` 模拟 VLM，完成 6 次协议请求、2 张入选样本和 1 次看图反馈修正。两张均通过 `synth-check` 与 `convert`，目视检查修正后表格预览。脚本为 `scripts/smoke_synthesis_agent.py`，记录见 `synthesis-agent-validation.json`。没有发送真实供应商请求，真实 VLM 模板生成质量与 hardcase 风格还原尚未验证。
+
+## ERNIE SFT 输入与无任务配额验证
+
+2026-09-08：完整测试 **71 项通过**。新增官方 `image_info/text_info` 三任务导入、表格 HTML/OTSL、错误任务/上下文拒绝、无效评测标注仍隔离同图、HTTP 图片缓存及大小限制、默认无配额与显式配额对照。混合官方 SFT 通过模拟双模型完整运行到三类 DPO 偏好对；公式使用显式 fast 模式，不代表真实 CDM 或模型精度验证。格式依据 ERNIE `release/v1.5/docs/paddleocr_vl_sft_zh.md` 和 `docs/datasets.md` 核对。

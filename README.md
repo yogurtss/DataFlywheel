@@ -52,6 +52,41 @@ python scripts/offline_demo.py runs/offline-demo
 
 ## 输入与表格转换
 
+### 直接使用 ERNIE / PaddleOCR-VL 官方 SFT JSONL
+
+可直接输入 [ERNIE 官方 SFT 格式](https://github.com/PaddlePaddle/ERNIE/blob/release/v1.5/docs/paddleocr_vl_sft_zh.md)，不必手动转换字段，不要求 text/table/formula 按比例出现。每行一个裁剪区域和一轮问答，下面三类可任意混合，也可以整个文件只有表格：
+
+```jsonl
+{"image_info":[{"image_url":"images/text.png","matched_text_index":0}],"text_info":[{"text":"OCR:","tag":"mask"},{"text":"文本标注","tag":"no_mask"}]}
+{"image_info":[{"image_url":"images/table.png","matched_text_index":0}],"text_info":[{"text":"Table Recognition:","tag":"mask"},{"text":"<fcel>A<fcel>B<nl>","tag":"no_mask"}]}
+{"image_info":[{"image_url":"images/formula.png","matched_text_index":0}],"text_info":[{"text":"Formula Recognition:","tag":"mask"},{"text":"x^{2}+1","tag":"no_mask"}]}
+```
+
+程序从 `mask` 提示词识别任务，从 `no_mask` 答案取得 GT，按样本自动路由指标：
+
+| 提示词 | 任务与标注 | 主指标 |
+|---|---|---|
+| `OCR:` | text，原文 | `1-NED`，附 CER/WER |
+| `Table Recognition:` | table，OTSL（也接受合法 HTML） | HTML 表示上的 TEDS，附 TEDS-S |
+| `Formula Recognition:` | formula，LaTeX | 默认 CDM；显式 `fast` 时用编辑距离代理 |
+
+任务由提示词决定，不因 OCR 文本含数学符号就误判公式。原 `image_info/text_info` 保留供审计。无需提供 `id/task/gt_format/source/domain`；已有 `document_id/parent_document_id/split` 仍用于评测隔离，缺少文档信息时无法仅凭图片确定其是否来自评测页。
+
+```bash
+# 配置 default.yaml 中的两套推理服务后，一条命令构建 DPO
+dataflywheel run -i /data/ocr_vl_sft-train.jsonl -o runs/round1 -c configs/default.yaml
+# 或仅检查/转换输入，查看错误清单，再分阶段运行
+dataflywheel convert -i /data/ocr_vl_sft-train.jsonl -o runs/normalized.jsonl -c configs/default.yaml
+```
+
+本地图片默认相对 JSONL 所在目录；`data.image_root` 可指定根目录。HTTP(S) `image_url` 自动下载到 `data.image_cache`，检查大小上限和可读性，再哈希去重；缓存按 URL 复用，远程同 URL 内容变更后应清理对应缓存。多图、多轮、system/video/tool 上下文、未知任务（包括 Chart Recognition）和冲突标注进入导入错误清单，不套用不合适的 OCR 指标。
+
+默认 `mixture.task: null`、`mixture.domain: null`，**不施加任务或来源配额，也不强制保持输入比例**。全部有效输入先完成双模型确定性推理和评分，再按退化、难度、偏好间隔及预算选样，最终各类数量由有效样本决定。`mining.budget` 仍是最终偏好对数量上限；追加采样限于 shortlist，未入选原因有记录。只有 text/table 时不要求 CDM；含 formula 时默认需要 CDM，缺依赖明确报错。
+
+旧配置若仍写有 `mixture.task: {table: 0.5, text: 0.3, formula: 0.2}`，请改为 `null` 或删除该项；来源配额同理。需要配额的对照实验仍可显式配置比例。
+
+### 兼容统一 JSON / JSONL
+
 JSON list 或 JSONL，每条对应一个裁剪图。`image` 相对输入文件目录解析，其余配置路径相对命令运行目录解析。最小输入：
 
 ```json
@@ -62,7 +97,7 @@ JSON list 或 JSONL，每条对应一个裁剪图。`image` 相对输入文件�
 ]
 ```
 
-也可统一写 `gt` 和 `gt_format`（`html/otsl/text/latex`）。`fields` 可映射已有字段：`{image: image_path, task: category, document_id: doc_id}`。其他元数据原样保留，`language` 用于报告；`source` 是数据集名称，`domain` 默认仅指 `private/general` 两个回放分组。存储业务域时可用额外字段 `business_domain`。
+也可统一写 `gt` 和 `gt_format`（`html/otsl/text/latex`）。`fields` 可映射已有字段：`{image: image_path, task: category, document_id: doc_id}`。其他元数据原样保留，`language` 用于报告；`source` 是数据集名称，`domain` 默认是 `private`，可标记为 `general` 或自定义来源分组。存储业务域时可用额外字段 `business_domain`。
 
 ```bash
 dataflywheel convert -i data/input.json -o runs/normalized.jsonl -c configs/default.yaml
@@ -100,12 +135,12 @@ dataflywheel run -i data/input.json -o runs/round1 -c configs/default.yaml
 2. 双模型各一次确定性推理并评分，保留所有原始响应。
 3. 选取最多 `3 × budget` 的候选池，分桶为退化、可学习中等难度、覆盖性样本。
 4. 仅对候选池追加默认 4 次 SFT 采样，重算评分和分桶。
-5. 构造有效偏好对，按任务、私有/通用、难度桶联合配额选到 `budget`。
+5. 构造有效偏好对，按难度桶和优先级选到 `budget`；任务/来源配额仅在显式配置时启用。
 6. 写出 DPO、审计、待处理清单及 HTML 报告。
 
 样本综合分：`0.4×GT误差 + 0.4×退化 + 0.2×模型分歧`，缺失项仅用于诊断时按可用权重归一化。退化是 `max(base_score-sft_score, 0)`；输出不同并不意味着原模型更好。默认退化阈值 0.05，中等难度为任务内误差的 20–80 百分位，候选分差至少 0.05。
 
-默认私有/通用 50/50，table/text/formula 50/30/20，退化/可学习/覆盖 40/40/20。配额用最大余数法取整；不足时从其余可用样本补齐，不重复采样，`.stats.json` 记录补齐前缺口和实际比例。极难但有可信 GT 的样本仍可在 hybrid/gt_pair 中被选中；它们不会因为分数最低就自动获得全部预算。
+默认不限制私有/通用或 table/text/formula 比例，保留退化/可学习/覆盖 40/40/20 的难度桶预算。显式设置的配额用最大余数法取整；不足时从其余可用样本补齐，不重复采样，`.stats.json` 记录补齐前缺口和实际比例。极难但有可信 GT 的样本仍可在 hybrid/gt_pair 中被选中；它们不会因为分数最低就自动获得全部预算。
 
 独立阶段便于复用推理缓存：
 
@@ -282,7 +317,7 @@ python -m dataflywheel convert -i runs/synthesis/vlm-run/samples.jsonl -o runs/s
 
 ## 验证状态与项目结构
 
-当前完整自动测试 **57 项通过**。另有真实 Chromium 的 8 张规则合成样本，以及 2 张使用模拟 VLM 响应的 Agent 流程样本；后者覆盖一次看图反馈后的修正。模拟服务用于验证消息格式与控制流程，不代表真实 VLM 的生成质量。真实 PaddleOCR 推理、CDM、GPU DPO 和完整页级评测仍需在你的运行环境验收，详见 [验证边界](docs/VALIDATION.md) 和 [Agent 验证记录](docs/synthesis-agent-validation.json)。
+当前完整自动测试 **71 项通过**。另有真实 Chromium 的 8 张规则合成样本，以及 2 张使用模拟 VLM 响应的 Agent 流程样本；后者覆盖一次看图反馈后的修正。模拟服务用于验证消息格式与控制流程，不代表真实 VLM 的生成质量。真实 PaddleOCR 推理、CDM、GPU DPO 和完整页级评测仍需在你的运行环境验收，详见 [验证边界](docs/VALIDATION.md) 和 [Agent 验证记录](docs/synthesis-agent-validation.json)。
 
 可复现 Agent 流程测试（需要 Chromium、字体和一张本地图片；不调用真实 VLM）：
 
