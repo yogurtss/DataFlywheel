@@ -35,18 +35,39 @@ flowchart LR
 
 ## 安装与快速体验
 
-建议数据工程、训练、PaddleOCR 页级产线、CDM 分开环境，避免 Paddle/Transformers/TeX 依赖互相影响。
+本项目直接运行源码，要求 Python 3.10 或更新版本。无需 `pip install .`，不注册独立命令。以下命令均在仓库根目录执行：
+
+```bash
+git clone https://github.com/yogurtss/DataFlywheel.git
+cd DataFlywheel
+```
+
+建议数据工程、训练、PaddleOCR 页级产线、CDM 分开环境，避免 Paddle/Transformers/TeX 依赖互相影响。各环境只安装所需依赖，始终通过仓库内脚本运行。
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e '.[test,average]'
+pip install -r requirements.txt
+# 测试依赖（含权重平均所需的 CPU/GPU PyTorch）
+pip install -r requirements-test.txt
 python -m pytest -q
+python main.py --help
 
 # 无模型、无端口的完整软件演示；模拟响应不是模型精度验证。
 python scripts/offline_demo.py runs/offline-demo
 # 浏览 runs/offline-demo/result/report/index.html
 ```
+
+依赖按用途拆分，扩展文件均包含基础依赖：
+
+| 用途 | 安装命令 |
+|---|---|
+| 导入、双模型推理、评分、挖掘、DPO 导出和报告 | `pip install -r requirements.txt` |
+| 表格合成与 VLM Agent | `pip install -r requirements-synth.txt`，另安装 Chromium |
+| 权重平均 | `pip install -r requirements-average.txt` |
+| ms-swift DPO 训练 | `pip install -r requirements-train.txt` |
+| 官方页级产线 | `pip install -r requirements-pages.txt` |
+| 自动测试 | `pip install -r requirements-test.txt` |
 
 [验证记录](docs/VALIDATION.md) 区分本地测试、模拟服务和真实硬件验证。`requirements-core.lock` 固定本地实际测试的核心版本；训练依赖不会冒充已经 GPU 验证的锁文件。成功完成真实训练后，输出目录自动记录 `requirements.verified.txt`。
 
@@ -74,9 +95,9 @@ python scripts/offline_demo.py runs/offline-demo
 
 ```bash
 # 配置 default.yaml 中的两套推理服务后，一条命令构建 DPO
-dataflywheel run -i /data/ocr_vl_sft-train.jsonl -o runs/round1 -c configs/default.yaml
+python main.py run -i /data/ocr_vl_sft-train.jsonl -o runs/round1 -c configs/default.yaml
 # 或仅检查/转换输入，查看错误清单，再分阶段运行
-dataflywheel convert -i /data/ocr_vl_sft-train.jsonl -o runs/normalized.jsonl -c configs/default.yaml
+python main.py convert -i /data/ocr_vl_sft-train.jsonl -o runs/normalized.jsonl -c configs/default.yaml
 ```
 
 本地图片默认相对 JSONL 所在目录；`data.image_root` 可指定根目录。HTTP(S) `image_url` 自动下载到 `data.image_cache`，检查大小上限和可读性，再哈希去重；缓存按 URL 复用，远程同 URL 内容变更后应清理对应缓存。多图、多轮、system/video/tool 上下文、未知任务（包括 Chart Recognition）和冲突标注进入导入错误清单，不套用不合适的 OCR 指标。
@@ -100,7 +121,7 @@ JSON list 或 JSONL，每条对应一个裁剪图。`image` 相对输入文件�
 也可统一写 `gt` 和 `gt_format`（`html/otsl/text/latex`）。`fields` 可映射已有字段：`{image: image_path, task: category, document_id: doc_id}`。其他元数据原样保留，`language` 用于报告；`source` 是数据集名称，`domain` 默认是 `private`，可标记为 `general` 或自定义来源分组。存储业务域时可用额外字段 `business_domain`。
 
 ```bash
-dataflywheel convert -i data/input.json -o runs/normalized.jsonl -c configs/default.yaml
+python main.py convert -i data/input.json -o runs/normalized.jsonl -c configs/default.yaml
 # 同一功能的独立手动脚本：
 python scripts/html_to_otsl.py -i data/input.json -o runs/normalized.jsonl
 ```
@@ -126,7 +147,7 @@ OTSL 使用官方的 `<fcel>/<ecel>/<lcel>/<ucel>/<xcel>/<nl>`。单元格文本
 服务端动态分辨率参数须与训练 `max_pixels` 保持一致（默认 1003520）。vLLM 等可通过 endpoint 的 `extra_body.mm_processor_kwargs` 显式传入，具体支持以服务版本为准；请求、参数、预处理、权重 revision 全部进入缓存键。完整 PaddleOCR 产线接口不是 `infer` 所需的裁剪图 VLM 接口。
 
 ```bash
-dataflywheel run -i data/input.json -o runs/round1 -c configs/default.yaml
+python main.py run -i data/input.json -o runs/round1 -c configs/default.yaml
 ```
 
 `run` 只进行数据工程，不启动训练：
@@ -145,15 +166,15 @@ dataflywheel run -i data/input.json -o runs/round1 -c configs/default.yaml
 独立阶段便于复用推理缓存：
 
 ```bash
-dataflywheel infer -i runs/normalized.jsonl -o runs/inferred.jsonl --cache runs/cache -c configs/default.yaml
-dataflywheel score -i runs/inferred.jsonl -o runs/scored.jsonl -c configs/default.yaml
-dataflywheel mine -i runs/scored.jsonl -o runs/mined.jsonl -c configs/default.yaml
-dataflywheel infer --sampling -i runs/mined.jsonl -o runs/sampled.jsonl --cache runs/cache -c configs/default.yaml
-dataflywheel score -i runs/sampled.jsonl -o runs/sampled.scored.jsonl -c configs/default.yaml
+python main.py infer -i runs/normalized.jsonl -o runs/inferred.jsonl --cache runs/cache -c configs/default.yaml
+python main.py score -i runs/inferred.jsonl -o runs/scored.jsonl -c configs/default.yaml
+python main.py mine -i runs/scored.jsonl -o runs/mined.jsonl -c configs/default.yaml
+python main.py infer --sampling -i runs/mined.jsonl -o runs/sampled.jsonl --cache runs/cache -c configs/default.yaml
+python main.py score -i runs/sampled.jsonl -o runs/sampled.scored.jsonl -c configs/default.yaml
 
-dataflywheel build-dpo -i runs/sampled.scored.jsonl -o runs/model-pairs.jsonl --mode model_pair -c configs/default.yaml
-dataflywheel build-dpo -i runs/sampled.scored.jsonl -o runs/gt-pairs.jsonl --mode gt_pair -c configs/default.yaml
-dataflywheel build-dpo -i runs/sampled.scored.jsonl -o runs/hybrid-pairs.jsonl --mode hybrid -c configs/default.yaml
+python main.py build-dpo -i runs/sampled.scored.jsonl -o runs/model-pairs.jsonl --mode model_pair -c configs/default.yaml
+python main.py build-dpo -i runs/sampled.scored.jsonl -o runs/gt-pairs.jsonl --mode gt_pair -c configs/default.yaml
+python main.py build-dpo -i runs/sampled.scored.jsonl -o runs/hybrid-pairs.jsonl --mode hybrid -c configs/default.yaml
 ```
 
 默认 hybrid：先选达到质量门槛的模型正例，缺少时使用可信 GT。model_pair 不使用 GT 文本作为答案，只用它评分。负例优先 SFT 输出，选满足分差条件的最接近正例者。表格阈值 0.85、文本 0.95、公式 0.90；代理公式模式的阈值是代理分数，需独立调参。一个图片最多一个偏好对。
@@ -181,15 +202,15 @@ CDM 在独立进程中运行并先进行 `x+1` 自匹配检查。工具缺失、
 训练环境安装支持 PaddleOCR-VL-1.6 的 ms-swift 4.x 和 Transformers 5.x：
 
 ```bash
-pip install -e '.[train]'
+pip install -r requirements-train.txt
 # 先查看命令（只做数据/图片检查，不加载模板）
-dataflywheel train -i runs/round1/dpo.jsonl -o runs/train1 -c configs/default.yaml --dry-run
+python main.py train -i runs/round1/dpo.jsonl -o runs/train1 -c configs/default.yaml --dry-run
 # 用真实模板编码两侧答案，包含视觉 token；失败时不会启动训练
-dataflywheel train -i runs/round1/dpo.jsonl -o runs/train1 -c configs/default.yaml --preflight-only
+python main.py train -i runs/round1/dpo.jsonl -o runs/train1 -c configs/default.yaml --preflight-only
 # 单卡
-dataflywheel train -i runs/round1/dpo.jsonl -o runs/train1 -c configs/default.yaml
+python main.py train -i runs/round1/dpo.jsonl -o runs/train1 -c configs/default.yaml
 # 多卡 DDP，修改模型路径与 GPU 配置后执行
-dataflywheel train -i runs/round1/dpo.jsonl -o runs/train-ddp -c configs/train-ddp.yaml
+python main.py train -i runs/round1/dpo.jsonl -o runs/train-ddp -c configs/train-ddp.yaml
 ```
 
 当前官方注册使用 `model_type=paddleocr_vl`、`template=paddle_ocr_1_5`，1.6 沿用该模板；不是使用原版 `paddle_ocr`。采用 `--tuner_type full`，视觉编码器和对齐模块均不冻结，不使用 ZeRO。多卡各卡保留 policy/reference，显存需求由你的输入长度和批量决定。
@@ -201,7 +222,7 @@ policy 与 reference 默认均来自 SFT checkpoint；原始模型只是挖掘�
 ## 静态报告
 
 ```bash
-dataflywheel report -i runs/round1/dpo.selected.jsonl -o runs/review \
+python main.py report -i runs/round1/dpo.selected.jsonl -o runs/review \
   --before runs/round1/scored.jsonl --pending runs/round1/dpo.pending.jsonl
 ```
 
@@ -212,9 +233,10 @@ dataflywheel report -i runs/round1/dpo.selected.jsonl -o runs/review \
 准备 `pages.json`：`[{"image":"page_001.jpg"}, ...]`。图片文件名须与 OmniDocBench 对应，每条是一页；PDF 需先按官方评测渲染设置转页图。
 
 ```bash
-# 在官方 PaddleOCR-VL-1.6 产线环境中安装本包，再执行：
-dataflywheel parse-pages -i data/pages.json -o runs/omni/base --role base -c configs/default.yaml
-dataflywheel parse-pages -i data/pages.json -o runs/omni/sft --role sft -c configs/default.yaml
+# 在官方 PaddleOCR-VL-1.6 产线环境中，进入仓库根目录执行：
+pip install -r requirements-pages.txt
+python main.py parse-pages -i data/pages.json -o runs/omni/base --role base -c configs/default.yaml
+python main.py parse-pages -i data/pages.json -o runs/omni/sft --role sft -c configs/default.yaml
 ```
 
 两次使用同一 `pages.options` 中的版面模型与预处理，连接不同 VLM。产物是 `markdown/<原图名>.md`、`json/<原图名>.json` 和带模型/产线配置的 `manifest.json`。不同模型请用不同输出目录。将 `markdown/` 挂载进你的官方 Docker 并在官方配置中设置 prediction path；本项目不调用 Docker 评分，也不将此步骤挂入训练。
@@ -222,7 +244,8 @@ dataflywheel parse-pages -i data/pages.json -o runs/omni/sft --role sft -c confi
 ## N 模型加权平均
 
 ```bash
-dataflywheel average --models /models/base /models/sft /models/dpo \
+pip install -r requirements-average.txt
+python main.py average --models /models/base /models/sft /models/dpo \
   --weights 0.2 0.3 0.5 --output /models/fused --dtype bfloat16 --shard-mb 2000
 ```
 
@@ -248,21 +271,21 @@ dataflywheel average --models /models/base /models/sft /models/dpo \
 `synth-template → synth-render → synth-check` 提供 **GT 驱动的表格参数化合成**，输出可直接交给现有 `convert/run`。这组三个命令不调用模型；另有下文的 `synth-agent`，使用 VLM 看图生成新结构并迭代修正。两条路径目前均只支持 table，尚未实现 text/formula 合成。
 
 ```bash
-pip install -e '.[synth]'
+pip install -r requirements-synth.txt
 python -m playwright install --with-deps chromium
 
 # 不指定输入时生成四种内置演示模板。
-dataflywheel synth-template -o runs/synth/templates.jsonl
+python main.py synth-template -o runs/synth/templates.jsonl
 # 或从真实难样本 GT 提取结构；建议输入已完成去重与评测隔离的产物。
-dataflywheel synth-template -i runs/round1/sampled.scored.jsonl -o runs/synth/hardcase-templates.jsonl
+python main.py synth-template -i runs/round1/sampled.scored.jsonl -o runs/synth/hardcase-templates.jsonl
 
 # 指定覆盖所需字符的本地字体，例如 NotoSansCJKsc-Regular.otf。
-dataflywheel synth-render -i runs/synth/templates.jsonl -o runs/synth/rendered \
+python main.py synth-render -i runs/synth/templates.jsonl -o runs/synth/rendered \
   --font /path/to/NotoSansCJKsc-Regular.otf --variants 2 --seed 42
-dataflywheel synth-check -i runs/synth/rendered/samples.jsonl -o runs/synth/checked.jsonl
-dataflywheel convert -i runs/synth/checked.jsonl -o runs/synth/normalized.jsonl
+python main.py synth-check -i runs/synth/rendered/samples.jsonl -o runs/synth/checked.jsonl
+python main.py convert -i runs/synth/checked.jsonl -o runs/synth/normalized.jsonl
 # 端口配置好后用真实模型测量合成样本难度和偏好间隔：
-dataflywheel run -i runs/synth/checked.jsonl -o runs/synth/mined -c configs/default.yaml
+python main.py run -i runs/synth/checked.jsonl -o runs/synth/mined -c configs/default.yaml
 ```
 
 内置样本包括：中英合并表头、密集数字明细、窄列换行、联合跨行跨列。每个家族默认生成清晰版和轻度扫描版；后者调整数值、字号、间距与线条，再施加轻度旋转、模糊和 JPEG 压缩。结构来自合法单元格网格，原图截图与 HTML/OTSL GT 共用该网格。现阶段保留种子拓扑；不会声称简单改变 CSS 已覆盖所有结构困难。
@@ -299,7 +322,7 @@ synthesis:
 
 ```bash
 export SYNTH_VLM_TOKEN='your-token'
-python -m dataflywheel synth-agent \
+python main.py synth-agent \
   -c configs/synthesis-vlm.yaml -i runs/round1/shortlist.jsonl \
   -o runs/synthesis/vlm-run --font /path/to/NotoSansCJKsc-Regular.otf
 ```
@@ -311,7 +334,7 @@ python -m dataflywheel synth-agent \
 输出 `samples.jsonl` 只包含结构、字体、DOM 溢出检查与 VLM 质检均通过的样本，HTML/OTSL GT 来自实际渲染网格；`templates.jsonl` 保存入选模板，`audit.jsonl` 保存提案和反馈，`pending.jsonl` 保存修正预算耗尽的条目，`index.html` 链接本地预览。`trials/` 中可能包含未通过视觉质检的渲染结果，**不要将 trials 下的数据合并训练**。请求超时/限流有重试，截断或非法 JSON 会进入有限修正流程；不自动退回规则模板。目前按模板串行运行，输出目录必须新建，不支持断点恢复。
 
 ```bash
-python -m dataflywheel convert -i runs/synthesis/vlm-run/samples.jsonl -o runs/synthesis/vlm-normalized.jsonl
+python main.py convert -i runs/synthesis/vlm-run/samples.jsonl -o runs/synthesis/vlm-normalized.jsonl
 # 再接 infer/score/mine/build-dpo 或 run，确定候选难度和有效偏好。
 ```
 
@@ -328,7 +351,10 @@ python scripts/smoke_synthesis_agent.py \
 ```
 
 ```text
-dataflywheel/             CLI、推理、评分、挖掘、合成、训练与权重平均
+main.py                  统一脚本入口：python main.py <命令>
+dataflywheel/             项目内部模块，不作为独立库安装
+requirements*.txt        基础及各功能所需依赖
+pytest.ini               测试配置
 configs/                 不含真实凭据的 YAML 配置模板
 scripts/                 离线演示、转换和合成流程验证脚本
 tests/                   自动测试

@@ -39,3 +39,7 @@
 ## ERNIE SFT 输入与无任务配额验证
 
 2026-09-08：完整测试 **71 项通过**。新增官方 `image_info/text_info` 三任务导入、表格 HTML/OTSL、错误任务/上下文拒绝、无效评测标注仍隔离同图、HTTP 图片缓存及大小限制、默认无配额与显式配额对照。混合官方 SFT 通过模拟双模型完整运行到三类 DPO 偏好对；公式使用显式 fast 模式，不代表真实 CDM 或模型精度验证。格式依据 ERNIE `release/v1.5/docs/paddleocr_vl_sft_zh.md` 和 `docs/datasets.md` 核对。
+
+## 源码脚本运行验证
+
+2026-09-08：移除 setuptools 包配置和 console entry point，使用 `pip install -r requirements.txt` 安装依赖、`python main.py` 运行。71 项测试通过。基础 requirements 在现有依赖环境中通过 pip 离线 dry-run；未安装项目包，从仓库外目录以绝对路径运行 `main.py convert`，三条输入均接受；直接运行 `scripts/offline_demo.py` 完成三类 DPO 和 HTML 报告，两个辅助脚本的帮助入口也通过。验证仅使用临时目录中的第三方依赖，没有把仓库根目录加入 PYTHONPATH。训练/页级 requirements 沿用先前版本范围，未新增 GPU 兼容性验证。

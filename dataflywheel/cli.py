@@ -129,7 +129,7 @@ def execute(args, config):
 
 
 def parser():
-    p = argparse.ArgumentParser(prog="dataflywheel", description="PaddleOCR-VL-1.6 数据飞轮")
+    p = argparse.ArgumentParser(prog="python main.py", description="PaddleOCR-VL-1.6 数据飞轮")
     sub = p.add_subparsers(dest="command", required=True)
     s = sub.add_parser("synth-agent")
     s.add_argument("--input", "-i", required=True)

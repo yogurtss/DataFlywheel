@@ -2,6 +2,7 @@
 import argparse
 import json
 from pathlib import Path
+import _bootstrap  # noqa: F401
 
 import httpx
 

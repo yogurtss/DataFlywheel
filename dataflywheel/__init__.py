@@ -1,3 +1,1 @@
-"""PaddleOCR-VL data flywheel. Heavy training dependencies are loaded lazily."""
-
-__version__ = "0.1.0"
+"""Internal project modules; launch through the repository's main.py."""

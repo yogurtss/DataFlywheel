@@ -1,0 +1,2 @@
+-r requirements.txt
+paddleocr[doc-parser]>=3.6

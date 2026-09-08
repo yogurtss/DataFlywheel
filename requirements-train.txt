@@ -1,0 +1,4 @@
+-r requirements.txt
+ms-swift>=4.0,<5
+transformers>=5.0,<6
+safetensors>=0.4.5

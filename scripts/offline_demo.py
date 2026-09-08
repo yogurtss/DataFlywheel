@@ -5,6 +5,7 @@ This is a software smoke test, NOT an OCR/model quality evaluation.
 import json
 from pathlib import Path
 import sys
+import _bootstrap  # noqa: F401
 
 import httpx
 
