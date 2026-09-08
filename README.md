@@ -338,6 +338,69 @@ python main.py convert -i runs/synthesis/vlm-run/samples.jsonl -o runs/synthesis
 # 再接 infer/score/mine/build-dpo 或 run，确定候选难度和有效偏好。
 ```
 
+### 服务器无法安装 Playwright：在 Docker 中运行合成
+
+可以把合成脚本、Playwright 和浏览器放在同一容器中运行，宿主机只需 Docker。VLM 仍通过 YAML 中配置的 URL 调用，合成容器不需要 GPU。此方式适用于 `synth-render` 和 `synth-agent`，不改变后续 DPO 数据流程。
+
+[Playwright 官方 Python 镜像](https://playwright.dev/python/docs/docker)包含浏览器及其系统依赖，**不包含 Python Playwright 包**；包版本必须与镜像版本匹配。下面固定使用 `1.62.0`，无需再执行 `playwright install`。
+
+在 Linux 服务器的项目根目录运行：
+
+```bash
+# 使用环境变量鉴权时，先在宿主机设置；无鉴权服务无需设置。
+export SYNTH_VLM_TOKEN='your-token'
+
+docker run --rm -it --init --ipc=host \
+  --network host \
+  -v "$PWD:$PWD" -w "$PWD" \
+  -v /data:/data \
+  -e SYNTH_VLM_TOKEN \
+  mcr.microsoft.com/playwright/python:v1.62.0-noble \
+  bash
+```
+
+进入容器后安装依赖并运行：
+
+```bash
+pip install -r requirements-synth.txt playwright==1.62.0
+
+python main.py synth-agent \
+  -c configs/synthesis-vlm.yaml \
+  -i /data/hardcases.jsonl \
+  -o runs/docker-synthesis \
+  --font /data/fonts/NotoSansCJKsc-Regular.otf
+```
+
+`--network host` 按 Linux 服务器场景配置，容器可用 `http://127.0.0.1:端口/v1` 访问宿主机上的 VLM 服务。其他机器上的 VLM 使用其可访问的 IP/域名。JSONL、图片、字体及配置引用的其他路径都必须挂载进容器；把示例 `/data` 替换为自己的数据目录，尽量在容器内外保持相同绝对路径，确保生成清单在宿主机后续流程中仍可使用。
+
+输出写入挂载的项目 `runs/`，退出容器后仍保留。每次运行使用新的输出目录。官方镜像默认以 root 运行，生成文件通常归 root 所有；若需写入用户目录，可按服务器的用户/权限设置调整容器运行方式。
+
+#### 离线服务器
+
+在能联网、且与目标服务器 CPU 架构一致的机器上准备依赖镜像。将下面内容保存为临时 `Dockerfile.synth`，在项目根目录构建；只复制依赖清单，代码和数据在运行时挂载：
+
+```dockerfile
+FROM mcr.microsoft.com/playwright/python:v1.62.0-noble
+WORKDIR /opt/dataflywheel-deps
+COPY requirements.txt requirements-synth.txt ./
+RUN pip install --no-cache-dir -r requirements-synth.txt playwright==1.62.0
+WORKDIR /workspace
+CMD ["bash"]
+```
+
+```bash
+# 联网机器
+docker build -f Dockerfile.synth -t dataflywheel-synth:pw1.62.0 .
+docker save -o dataflywheel-synth-pw1.62.0.tar dataflywheel-synth:pw1.62.0
+
+# 将 tar、项目源码、数据和字体传到服务器后
+docker load -i dataflywheel-synth-pw1.62.0.tar
+```
+
+将前面 `docker run` 中的镜像名替换为 `dataflywheel-synth:pw1.62.0` 即可；进入容器后直接运行 `python main.py ...`，不再执行 pip 安装。`synth-agent` 仍需能连接所配置的 VLM 服务；完全离线时可连接内网部署模型，或使用不调用 VLM 的 `synth-template` / `synth-render`。
+
+以上 Docker 步骤依据官方镜像说明编写；当前项目已验证本地 Chromium 合成，尚未在 Docker 中执行构建和运行验收。
+
 ## 验证状态与项目结构
 
 当前完整自动测试 **71 项通过**。另有真实 Chromium 的 8 张规则合成样本，以及 2 张使用模拟 VLM 响应的 Agent 流程样本；后者覆盖一次看图反馈后的修正。模拟服务用于验证消息格式与控制流程，不代表真实 VLM 的生成质量。真实 PaddleOCR 推理、CDM、GPU DPO 和完整页级评测仍需在你的运行环境验收，详见 [验证边界](docs/VALIDATION.md) 和 [Agent 验证记录](docs/synthesis-agent-validation.json)。
