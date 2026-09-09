@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import shlex
 import subprocess
+import sys
 
 from PIL import Image
 
@@ -15,12 +16,17 @@ def train_command(config, dataset, output):
     t = config["training"]
     if not t.get("model"):
         raise ValueError("training.model must point to the SFT full checkpoint")
+    dtype = t.get("torch_dtype", "bfloat16")
+    if dtype not in {"bfloat16", "float16", "float32"}:
+        raise ValueError("training.torch_dtype must be bfloat16, float16 or float32")
     cmd = ["swift", "rlhf", "--rlhf_type", "dpo", "--model", t["model"],
            "--ref_model", t.get("ref_model") or t["model"], "--model_type", "paddleocr_vl",
            "--ref_model_type", "paddleocr_vl", "--template", "paddle_ocr_1_5",
            "--tuner_type", "full", "--dataset", str(Path(dataset).resolve()), "--output_dir", str(Path(output).resolve()),
            "--split_dataset_ratio", "0", "--eval_strategy", "no", "--load_best_model_at_end", "false",
-           "--loss_type", "sigmoid", "--torch_dtype", "bfloat16", "--gradient_checkpointing", "true",
+           "--loss_type", "sigmoid", "--torch_dtype", dtype,
+           "--bf16", str(dtype == "bfloat16").lower(), "--fp16", str(dtype == "float16").lower(),
+           "--gradient_checkpointing", "true",
            "--freeze_vit", "false", "--freeze_aligner", "false", "--padding_free", "false",
            # CLI 'delete' maps to template 'raise' in TemplateArguments.
            # 'raise' itself is not a valid CLI choice. Preflight rejects long pairs.
@@ -107,6 +113,14 @@ def launch_training(dataset, config, output, dry_run=False, preflight_only=False
     write_json(output / "launch.json", {"argv": cmd, "environment": env, "dataset_sha256": file_hash(dataset), "config": redact_config(config)})
     if dry_run:
         return {"command": shlex.join(cmd), "environment": env, "length_preflight": "not_run"}
+    if not preflight_only:
+        probe = subprocess.run([sys.executable, str(Path(__file__).resolve().parents[1] / "scripts/check_training_gpu.py"),
+                                "--dtype", config["training"].get("torch_dtype", "bfloat16"),
+                                "--expected-devices", str(config["training"]["nproc_per_node"])],
+                               env={**os.environ, **env}, capture_output=True, text=True)
+        (output / "gpu-check.log").write_text(probe.stdout + probe.stderr)
+        if probe.returncode:
+            raise RuntimeError(f"GPU/precision check failed; see {output / 'gpu-check.log'}:\n{probe.stdout}{probe.stderr}")
     # Pair export audit binds images to the actual inference inputs.
     audit_path = Path(dataset).with_suffix(".audit.jsonl")
     if audit_path.exists():

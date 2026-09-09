@@ -43,3 +43,7 @@
 ## 源码脚本运行验证
 
 2026-09-08：移除 setuptools 包配置和 console entry point，使用 `pip install -r requirements.txt` 安装依赖、`python main.py` 运行。71 项测试通过。基础 requirements 在现有依赖环境中通过 pip 离线 dry-run；未安装项目包，从仓库外目录以绝对路径运行 `main.py convert`，三条输入均接受；直接运行 `scripts/offline_demo.py` 完成三类 DPO 和 HTML 报告，两个辅助脚本的帮助入口也通过。验证仅使用临时目录中的第三方依赖，没有把仓库根目录加入 PYTHONPATH。训练/页级 requirements 沿用先前版本范围，未新增 GPU 兼容性验证。
+
+## GPU / BF16 启动诊断
+
+2026-09-09：74 项测试通过，覆盖三种精度对应的 torch_dtype/bf16/fp16 参数组合。新增 `scripts/check_training_gpu.py`，正式训练前在配置的 CUDA_VISIBLE_DEVICES 下运行，并记录诊断日志。本地 CUDA 不可用，已验证该情形返回明确错误和非零退出码；L40S 实机检查、GPU 张量分配及各精度真实训练尚未验证。

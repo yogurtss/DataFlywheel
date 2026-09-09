@@ -219,6 +219,24 @@ policy 与 reference 默认均来自 SFT checkpoint；原始模型只是挖掘�
 
 训练不评测：`split_dataset_ratio=0`、`eval_strategy=no`、不按评测择优。超长、无有效 loss token 的样本在 `preflight.errors.jsonl` 报告，必须显式修正/过滤再运行，不自动截断。训练记录写 `train.log`，配置与精确 argv 写 `launch.json`。ms-swift 模型/模板 API 不兼容时直接失败，不静默换模型或模板。
 
+### 训练提示 `Your setup does not support bf16/gpu`
+
+这条信息表示当前训练进程没有检测到可用的 GPU BF16 环境。[NVIDIA L40S 支持 BF16](https://www.nvidia.com/en-gb/data-center/l40s/)，使用这类显卡时应先检查 CUDA 可见性、PyTorch 安装及容器 GPU 挂载，不要仅改精度来掩盖环境问题。在**实际训练的同一环境/容器中**执行：
+
+```bash
+nvidia-smi
+# 与 training.gpus 和 nproc_per_node 保持一致；此处演示单卡
+CUDA_VISIBLE_DEVICES=0 python scripts/check_training_gpu.py --expected-devices 1
+command -v python
+command -v swift
+```
+
+脚本输出 Python 路径、PyTorch/CUDA 版本、可见设备、BF16 支持情况，并尝试 GPU 张量分配。`cuda_build: null` 通常表示当前为非 CUDA 的 PyTorch 构建；`cuda_available: false` 时应检查驱动、GPU 映射和 CUDA_VISIBLE_DEVICES。若诊断通过但 swift 仍报错，确认 `swift` 属于同一个 Python 环境，并提供完整 traceback。
+
+前文 Playwright Docker 命令只用于合成，没有挂载 GPU。训练容器需要正确配置 NVIDIA Container Toolkit 并用 `--gpus all`（或分配指定 GPU）启动，还需安装训练依赖；只设置 `--network host` 不会开放 GPU。不要把合成环境可运行当成训练 CUDA 环境已就绪。
+
+精度现在可配置为 `training.torch_dtype: bfloat16`（默认）、`float16` 或 `float32`，并同步设置 ms-swift 的 bf16/fp16 开关。不支持 BF16 的设备可显式测试其他精度，但 FP16 数值范围更小，FP32 显存需求更高；项目不自动降精度。正常训练启动前会按 training.gpus 在子进程检查设备并保存 `gpu-check.log`；`--dry-run` 和 `--preflight-only` 不要求 GPU 检查通过。
+
 ### 训练提示 `argument --truncation_strategy: invalid choice: raise`
 
 更新代码后重新用 `python main.py train ...` 启动；旧版生成的手动训练命令需把 `--truncation_strategy raise` 改成 `--truncation_strategy delete`。ms-swift 命令行接受 `delete/left/right/split`，其内部会把 `delete` 映射为模板的 `raise`，见 [官方参数实现](https://github.com/modelscope/ms-swift/blob/main/swift/arguments/base_args/template_args.py)。不要把 `preflight` 中传给 `get_template` 的 `truncation_strategy="raise"` 一起替换，它属于内部模板 API。
@@ -409,7 +427,7 @@ docker load -i dataflywheel-synth-pw1.62.0.tar
 
 ## 验证状态与项目结构
 
-当前完整自动测试 **71 项通过**。另有真实 Chromium 的 8 张规则合成样本，以及 2 张使用模拟 VLM 响应的 Agent 流程样本；后者覆盖一次看图反馈后的修正。模拟服务用于验证消息格式与控制流程，不代表真实 VLM 的生成质量。真实 PaddleOCR 推理、CDM、GPU DPO 和完整页级评测仍需在你的运行环境验收，详见 [验证边界](docs/VALIDATION.md) 和 [Agent 验证记录](docs/synthesis-agent-validation.json)。
+当前完整自动测试 **74 项通过**。另有真实 Chromium 的 8 张规则合成样本，以及 2 张使用模拟 VLM 响应的 Agent 流程样本；后者覆盖一次看图反馈后的修正。模拟服务用于验证消息格式与控制流程，不代表真实 VLM 的生成质量。真实 PaddleOCR 推理、CDM、GPU DPO 和完整页级评测仍需在你的运行环境验收，详见 [验证边界](docs/VALIDATION.md) 和 [Agent 验证记录](docs/synthesis-agent-validation.json)。
 
 可复现 Agent 流程测试（需要 Chromium、字体和一张本地图片；不调用真实 VLM）：
 

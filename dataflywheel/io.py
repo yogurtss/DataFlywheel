@@ -74,6 +74,7 @@ DEFAULTS = {
     "mixture": {"domain": None, "task": None},
     "report": {"page_size": 40},
     "training": {"model": None, "ref_model": None, "gpus": "0", "nproc_per_node": 1,
+                 "torch_dtype": "bfloat16",
                  "learning_rate": 1e-6, "beta": 0.1, "num_train_epochs": 1,
                  "per_device_train_batch_size": 1, "gradient_accumulation_steps": 16,
                  "max_length": 8192, "max_pixels": 1003520, "rpo_alpha": None,

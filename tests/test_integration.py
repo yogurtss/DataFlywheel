@@ -95,3 +95,12 @@ def test_report_safe_offline(tmp_path, image_path, config):
     assert "<script>" not in page and "&lt;script&gt;" in page
     assert "<table>" in page and "loading=\"lazy\"" in page
     assert "cdn" not in page and (tmp_path / "report/index.html").exists()
+
+
+@pytest.mark.parametrize('dtype,bf16,fp16', [('bfloat16','true','false'), ('float16','false','true'), ('float32','false','false')])
+def test_training_precision_flags(config, dtype, bf16, fp16):
+    config['training'].update(model='/sft', torch_dtype=dtype)
+    cmd, _ = train_command(config, 'dpo.jsonl', 'out')
+    assert cmd[cmd.index('--torch_dtype')+1] == dtype
+    assert cmd[cmd.index('--bf16')+1] == bf16
+    assert cmd[cmd.index('--fp16')+1] == fp16
