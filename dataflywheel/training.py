@@ -32,6 +32,8 @@ def train_command(config, dataset, output):
            # 'raise' itself is not a valid CLI choice. Preflight rejects long pairs.
            "--truncation_strategy", "delete", "--strict", "true", "--remove_unused_columns", "false",
            "--report_to", "none"]
+    if t.get("paddle_feature_compat", True):
+        cmd += ["--external_plugins", str(Path(__file__).resolve().parents[1] / "scripts/swift_paddle_compat.py")]
     for key in ("learning_rate", "beta", "num_train_epochs", "per_device_train_batch_size",
                 "gradient_accumulation_steps", "max_length", "max_pixels", "save_steps", "logging_steps"):
         cmd += ["--" + key, str(t[key])]
@@ -70,6 +72,9 @@ def preflight(rows, config, output, template=None):
     """Encode BOTH branches including visual tokens through the actual template."""
     validate_pairs(rows)
     if template is None:
+        if config["training"].get("paddle_feature_compat", True):
+            from .paddle_compat import install_patch
+            install_patch()
         try:
             from swift.model import get_model_processor
             from swift.template import get_template

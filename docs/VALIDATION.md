@@ -47,3 +47,7 @@
 ## GPU / BF16 启动诊断
 
 2026-09-09：74 项测试通过，覆盖三种精度对应的 torch_dtype/bf16/fp16 参数组合。新增 `scripts/check_training_gpu.py`，正式训练前在配置的 CUDA_VISIBLE_DEVICES 下运行，并记录诊断日志。本地 CUDA 不可用，已验证该情形返回明确错误和非零退出码；L40S 实机检查、GPU 张量分配及各精度真实训练尚未验证。
+
+## PaddleOCR 图像特征 tuple 兼容
+
+2026-09-09：81 项测试通过。核对 ms-swift 的 `PaddleOCR1_5Template._post_encode` 和 Transformers 的 `PaddleOCRVLModel.get_image_features`：后者可将 pooler_output 按图片拆成 tuple。项目新增 external_plugins 兼容处理；测试覆盖 Tensor 原样保留、tuple/list 顺序拼接、完整批次占位符回填、视觉与语言梯度、非法返回值拒绝、重复加载和单卡/DDP 命令加载参数。上述为真实 CPU Tensor 测试及模拟模板/模型接口；未执行 ms-swift 实际多进程加载或 L40S GPU 训练。

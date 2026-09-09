@@ -53,6 +53,7 @@ training:
   gpus: '0'
   nproc_per_node: 1
   torch_dtype: bfloat16 # 可选 float16 / float32；不会自动切换精度
+  paddle_feature_compat: true # 兼容 Transformers 按图片返回 tuple 特征
   learning_rate: 1.0e-6
   beta: 0.1
   num_train_epochs: 1

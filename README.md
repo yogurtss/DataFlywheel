@@ -219,6 +219,18 @@ policy 与 reference 默认均来自 SFT checkpoint；原始模型只是挖掘�
 
 训练不评测：`split_dataset_ratio=0`、`eval_strategy=no`、不按评测择优。超长、无有效 loss token 的样本在 `preflight.errors.jsonl` 报告，必须显式修正/过滤再运行，不自动截断。训练记录写 `train.log`，配置与精确 argv 写 `launch.json`。ms-swift 模型/模板 API 不兼容时直接失败，不静默换模型或模板。
 
+### `templates/baidu.py` 提示 `tuple object has no attribute to`
+
+如果报错位于 `image_embeds.to(...)`，原因是 ms-swift 的 PaddleOCR 模板预期 `pooler_output` 为 Tensor，而部分 Transformers 版本返回按图片拆分的 Tensor tuple。对照 [ms-swift 模板](https://github.com/modelscope/ms-swift/blob/main/swift/template/templates/baidu.py) 与 [Transformers 模型实现](https://github.com/huggingface/transformers/blob/main/src/transformers/models/paddleocr_vl/modeling_paddleocr_vl.py)，应先 `torch.cat(image_embeds, dim=0)`，再转换设备和精度；不能只取 `[0]`，否则可能丢弃批次中其他图片的特征。
+
+更新项目并用原来的 `python main.py train ...` 命令重新启动即可。默认 `training.paddle_feature_compat: true`，启动器通过 `--external_plugins` 在各训练进程加载 `scripts/swift_paddle_compat.py`。插件只在进程内替换 `PaddleOCR1_5Template._post_encode` 的图像特征处理，不修改 site-packages，兼容原 Tensor 返回值和按图片拆分的 tuple/list，并保留自动求导。独立调用 `swift rlhf` 时需显式添加：
+
+```bash
+--external_plugins /absolute/path/to/DataFlywheel/scripts/swift_paddle_compat.py
+```
+
+插件基于上述已核对的模板接口；未来上游模板修复或接口调整后，可设置 `training.paddle_feature_compat: false` 使用上游实现。已通过 CPU 多图拼接、占位符回填和梯度检查；尚未在用户的 L40S 环境完成真实短训练，依赖版本范围仍不代表已验证的训练版本组合。
+
 ### 训练提示 `Your setup does not support bf16/gpu`
 
 这条信息表示当前训练进程没有检测到可用的 GPU BF16 环境。[NVIDIA L40S 支持 BF16](https://www.nvidia.com/en-gb/data-center/l40s/)，使用这类显卡时应先检查 CUDA 可见性、PyTorch 安装及容器 GPU 挂载，不要仅改精度来掩盖环境问题。在**实际训练的同一环境/容器中**执行：
@@ -427,7 +439,7 @@ docker load -i dataflywheel-synth-pw1.62.0.tar
 
 ## 验证状态与项目结构
 
-当前完整自动测试 **74 项通过**。另有真实 Chromium 的 8 张规则合成样本，以及 2 张使用模拟 VLM 响应的 Agent 流程样本；后者覆盖一次看图反馈后的修正。模拟服务用于验证消息格式与控制流程，不代表真实 VLM 的生成质量。真实 PaddleOCR 推理、CDM、GPU DPO 和完整页级评测仍需在你的运行环境验收，详见 [验证边界](docs/VALIDATION.md) 和 [Agent 验证记录](docs/synthesis-agent-validation.json)。
+当前完整自动测试 **81 项通过**。另有真实 Chromium 的 8 张规则合成样本，以及 2 张使用模拟 VLM 响应的 Agent 流程样本；后者覆盖一次看图反馈后的修正。模拟服务用于验证消息格式与控制流程，不代表真实 VLM 的生成质量。真实 PaddleOCR 推理、CDM、GPU DPO 和完整页级评测仍需在你的运行环境验收，详见 [验证边界](docs/VALIDATION.md) 和 [Agent 验证记录](docs/synthesis-agent-validation.json)。
 
 可复现 Agent 流程测试（需要 Chromium、字体和一张本地图片；不调用真实 VLM）：
 
