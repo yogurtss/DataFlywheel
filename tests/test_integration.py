@@ -54,6 +54,8 @@ def test_preflight_both_branches_and_train_flags(tmp_path, image_path, config):
     cmd, env = train_command(config, tmp_path / "dpo.jsonl", tmp_path / "train")
     assert cmd[cmd.index("--ref_model")+1] == "/sft"
     assert cmd[cmd.index("--eval_strategy")+1] == "no"
+    assert cmd[cmd.index("--truncation_strategy")+1] == "delete"
+    assert cmd[cmd.index("--strict")+1] == "true"
     assert "--deepspeed" not in cmd and "--rpo_alpha" not in cmd
     assert "--tuner_type" in cmd and env["NPROC_PER_NODE"] == "1"
     config["training"].update(gpus="0,1", nproc_per_node=2)

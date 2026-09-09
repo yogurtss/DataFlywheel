@@ -22,7 +22,9 @@ def train_command(config, dataset, output):
            "--split_dataset_ratio", "0", "--eval_strategy", "no", "--load_best_model_at_end", "false",
            "--loss_type", "sigmoid", "--torch_dtype", "bfloat16", "--gradient_checkpointing", "true",
            "--freeze_vit", "false", "--freeze_aligner", "false", "--padding_free", "false",
-           "--truncation_strategy", "raise", "--strict", "true", "--remove_unused_columns", "false",
+           # CLI 'delete' maps to template 'raise' in TemplateArguments.
+           # 'raise' itself is not a valid CLI choice. Preflight rejects long pairs.
+           "--truncation_strategy", "delete", "--strict", "true", "--remove_unused_columns", "false",
            "--report_to", "none"]
     for key in ("learning_rate", "beta", "num_train_epochs", "per_device_train_batch_size",
                 "gradient_accumulation_steps", "max_length", "max_pixels", "save_steps", "logging_steps"):
@@ -69,6 +71,7 @@ def preflight(rows, config, output, template=None):
             raise RuntimeError("Install ms-swift 4.x with PaddleOCR-VL-1.6 support in the training environment") from e
         _, processor = get_model_processor(config["training"]["model"], model_type="paddleocr_vl", load_model=False)
         template = get_template(processor, template_type="paddle_ocr_1_5", max_length=None,
+                                # Internal template API accepts 'raise', unlike the CLI.
                                 max_pixels=config["training"]["max_pixels"], truncation_strategy="raise",
                                 remove_unused_columns=False)
         template.set_mode("rlhf")

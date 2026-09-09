@@ -219,6 +219,12 @@ policy 与 reference 默认均来自 SFT checkpoint；原始模型只是挖掘�
 
 训练不评测：`split_dataset_ratio=0`、`eval_strategy=no`、不按评测择优。超长、无有效 loss token 的样本在 `preflight.errors.jsonl` 报告，必须显式修正/过滤再运行，不自动截断。训练记录写 `train.log`，配置与精确 argv 写 `launch.json`。ms-swift 模型/模板 API 不兼容时直接失败，不静默换模型或模板。
 
+### 训练提示 `argument --truncation_strategy: invalid choice: raise`
+
+更新代码后重新用 `python main.py train ...` 启动；旧版生成的手动训练命令需把 `--truncation_strategy raise` 改成 `--truncation_strategy delete`。ms-swift 命令行接受 `delete/left/right/split`，其内部会把 `delete` 映射为模板的 `raise`，见 [官方参数实现](https://github.com/modelscope/ms-swift/blob/main/swift/arguments/base_args/template_args.py)。不要把 `preflight` 中传给 `get_template` 的 `truncation_strategy="raise"` 一起替换，它属于内部模板 API。
+
+项目仍会在启动训练前编码 chosen/rejected 并检查完整长度，发现超长就报错并写入 `preflight.errors.jsonl`；修复不启用左右截断，也不跳过预检查。
+
 ## 静态报告
 
 ```bash
